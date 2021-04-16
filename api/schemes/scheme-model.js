@@ -1,23 +1,70 @@
+const db = require('../../data/db-config.js')
+
 function find() { // EXERCISE A
-  /*
-    1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
-    What happens if we change from a LEFT join to an INNER join?
+  // return db('schemes as sc')
+  //   .select('sc.*')
+  //   .count('st.step_id as number_of_steps')
+  //   .leftJoin('steps as st', 'sc.scheme_id', "st.scheme_id")
+  //   .groupBy('sc.scheme_id')
+  //   .orderBy('sc.scheme_id', 'asc')
 
-      SELECT
-          sc.*,
-          count(st.step_id) as number_of_steps
-      FROM schemes as sc
-      LEFT JOIN steps as st
-          ON sc.scheme_id = st.scheme_id
-      GROUP BY sc.scheme_id
-      ORDER BY sc.scheme_id ASC;
+  return db("schemes as sc")
+    .select("sc.*")
+    .count("st.step_id as number_of_steps")
+    .leftJoin("steps as st", "sc.scheme_id", "st.scheme_id")
+    .groupBy("sc.scheme_id")
+    .orderBy("sc.scheme_id", "asc")
 
-    2A- When you have a grasp on the query go ahead and build it in Knex.
-    Return from this function the resulting dataset.
-  */
 }
+/*
+  1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
+  What happens if we change from a LEFT join to an INNER join?
+
+    SELECT
+        sc.*,
+        count(st.step_id) as number_of_steps
+    FROM schemes as sc
+    LEFT JOIN steps as st
+        ON sc.scheme_id = st.scheme_id
+    GROUP BY sc.scheme_id
+    ORDER BY sc.scheme_id ASC;
+
+  2A- When you have a grasp on the query go ahead and build it in Knex.
+  Return from this function the resulting dataset.
+*/
+
 
 function findById(scheme_id) { // EXERCISE B
+  return db('schemes as sc')
+    .select('scheme_name', 'st.*', 'sc.scheme_id')
+    .leftJoin('steps as st', 'sc.scheme_id', 'st.scheme_id')
+    .where('sc.scheme_id', scheme_id)
+    .orderBy('st.step_number', 'ASC')
+    .then(data => {
+      if (!data || Object.keys(data).length === 0) {
+        return [];
+      }
+      let stepsArr = []
+      data.map(step => {
+        if (!step.step_id) {
+          return stepsArr;
+        }
+        let newStep = {
+          "step_id": step.step_id,
+          "step_number": step.step_number,
+          "instructions": step.instructions
+        }
+        stepsArr.push(newStep)
+      })
+      let STEPS = {
+        scheme_id: data[0].scheme_id,
+        scheme_name: data[0].scheme_name,
+        steps: stepsArr
+      }
+      return STEPS;
+    })
+
+
   /*
     1B- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`:
 
@@ -106,12 +153,22 @@ function findSteps(scheme_id) { // EXERCISE C
         }
       ]
   */
+  return db('steps as st')
+    .select('st.step_id', 'st.step_number', 'st.instructions', 'sc.scheme_name')
+    .leftJoin('schemes as sc', 'sc.scheme_id', 'st.scheme_id')
+    .where('sc.scheme_id', scheme_id)
+    .orderBy('st.step_number', 'asc')
 }
 
 function add(scheme) { // EXERCISE D
   /*
     1D- This function creates a new scheme and resolves to _the newly created scheme_.
   */
+  return db("schemes")
+    .insert(scheme)
+    .then(async ids => {
+      return await findById(ids[0]);
+    })
 }
 
 function addStep(scheme_id, step) { // EXERCISE E
@@ -120,6 +177,11 @@ function addStep(scheme_id, step) { // EXERCISE E
     and resolves to _all the steps_ belonging to the given `scheme_id`,
     including the newly created one.
   */
+  return db("steps")
+    .insert(Object.assign(step, { scheme_id }))
+    .then(() => {
+      return findSteps(scheme_id)
+    })
 }
 
 module.exports = {
